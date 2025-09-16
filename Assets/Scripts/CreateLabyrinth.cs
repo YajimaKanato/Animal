@@ -12,7 +12,7 @@ public class CreateLabyrinth : MonoBehaviour
 
     LabyrinthAlgorithm _algorithm;
 
-    const float CREATEINTERVAL = 0.1f;
+    const float CREATEINTERVAL = 0.05f;
     const int PASS = 1;
     const int WALL = 0;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
