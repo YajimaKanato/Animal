@@ -8,14 +8,13 @@ public class LabyrinthAlgorithm : MonoBehaviour
     [SerializeField, Tooltip("幅")] int _labyrinthSizeX = 5;
     [SerializeField, Tooltip("階層数")] int _labyrinthSizeY = 5;
     [SerializeField, Tooltip("奥行")] int _labyrinthSizeZ = 5;
-    [Header("スタートの位置")]
-    [SerializeField] int _startIndexX = 0;
-    [SerializeField] int _startIndexY = 0;
-    [SerializeField] int _startIndexZ = 0;
 
     /// <summary>アルゴリズムが終わった後に行う関数を持つデリゲート</summary>
     public static Action CreateLabyrinth;
-
+    /// <summary>連結情報を保持する辞書</summary>
+    Dictionary<(int x, int y, int z), List<(int x, int y, int z)>> _connectDic = new Dictionary<(int, int, int), List<(int, int, int)>>();
+    /// <summary>連結情報を保持する辞書を取得するプロパティ</summary>
+    public Dictionary<(int x, int y, int z), List<(int x, int y, int z)>> ConnectDic { get { return _connectDic; } }
 
     /// <summary>部屋、柱、壁すべてのID</summary>
     int[,,] _roomID;
@@ -92,6 +91,7 @@ public class LabyrinthAlgorithm : MonoBehaviour
         }
 
         Debug.Log("CreateLabyrinth");
+        MakeRoomConnectGlaph();
         CreateLabyrinth();
     }
 
@@ -208,11 +208,11 @@ public class LabyrinthAlgorithm : MonoBehaviour
         }
 
         //部屋のIDの更新
-        for (int n = 0; n < _zlen; n++)
+        for (int n = 1; n < _zlen - 1; n++)
         {
-            for (int m = 0; m < _ylen; m++)
+            for (int m = 1; m < _ylen - 1; m++)
             {
-                for (int l = 0; l < _xlen; l++)
+                for (int l = 1; l < _xlen - 1; l++)
                 {
                     if (l * m * n % 2 == 1)
                     {
@@ -221,6 +221,62 @@ public class LabyrinthAlgorithm : MonoBehaviour
                         {
                             //連結された方の部屋のIDに等しいものはすべて選ばれた部屋のIDに上書き
                             _roomID[l, m, n] = _roomID[randx, randy, randz];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// グラフの連結を作成する関数
+    /// </summary>
+    void MakeRoomConnectGlaph()
+    {
+        //辞書に登録するための一時的な関数
+        Action<int, int, int, int, int, int> setDic = (l, m, n, nextl, nextm, nextn) =>
+        {
+            //キーが登録されていないときは新しく登録
+            if (!_connectDic.ContainsKey((l, m, n)))
+            {
+                _connectDic.Add((l, m, n), new List<(int x, int y, int z)>());
+            }
+            _connectDic[(l, m, n)].Add((nextl, nextm, nextn));
+
+            if (!_connectDic.ContainsKey((nextl, nextm, nextn)))
+            {
+                _connectDic.Add((nextl, nextm, nextn), new List<(int x, int y, int z)>());
+            }
+            _connectDic[(nextl, nextm, nextn)].Add((l, m, n));
+        };
+
+        for (int n = 1; n < _zlen - 1; n++)
+        {
+            for (int m = 1; m < _ylen - 1; m++)
+            {
+                for (int l = 1; l < _xlen - 1; l++)
+                {
+                    if ((l + m + n) % 2 == 0 && ((l % 2 != 0) || (m % 2 != 0) || (n % 2 != 0)))
+                    {
+                        //「和が偶数」かつ「積が4の倍数ではない」とき部屋のつなぎ目
+                        if (_roomID[l, m, n] != WALL)
+                        {
+                            //部屋のつなぎ目に壁がないとき
+                            if (l % 2 == 0)
+                            {
+                                setDic(l, m, n, l + 1, m, n);
+                                setDic(l, m, n, l - 1, m, n);
+                            }
+                            else if (m % 2 == 0)
+                            {
+                                setDic(l, m, n, l, m + 1, n);
+                                setDic(l, m, n, l, m - 1, n);
+                            }
+                            else if (n % 2 == 0)
+                            {
+                                setDic(l, m, n, l, m, n + 1);
+                                setDic(l, m, n, l, m, n - 1);
+                            }
                         }
                     }
                 }
