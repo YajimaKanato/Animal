@@ -5,16 +5,12 @@ using UnityEngine;
 public class CreateLabyrinth : MonoBehaviour
 {
     [SerializeField] GameObject _prefab;
-    [Header("スタートの位置")]
-    [SerializeField, Tooltip("0以上迷路のサイズ未満の数字でインデックスを指定")] int _startIndexX = 0;
-    [SerializeField, Tooltip("0以上迷路のサイズ未満の数字でインデックスを指定")] int _startIndexY = 0;
-    [SerializeField, Tooltip("0以上迷路のサイズ未満の数字でインデックスを指定")] int _startIndexZ = 0;
+    [Header("スタートの位置（すべて奇数か偶数は１つまで）")]
+    [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexX = 0;
+    [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexY = 0;
+    [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexZ = 0;
 
     LabyrinthAlgorithm _algorithm;
-
-    int _labyrinthSizeX;
-    int _labyrinthSizeY;
-    int _labyrinthSizeZ;
 
     const float CREATEINTERVAL = 0.1f;
     const int PASS = 1;
@@ -38,9 +34,6 @@ public class CreateLabyrinth : MonoBehaviour
     void SetUp()
     {
         _algorithm = GetComponent<LabyrinthAlgorithm>();
-        _labyrinthSizeX = _startIndexX * 2 + 1;
-        _labyrinthSizeY = _startIndexY * 2 + 1;
-        _labyrinthSizeZ = _startIndexZ * 2 + 1;
     }
 
     /// <summary>
@@ -65,21 +58,27 @@ public class CreateLabyrinth : MonoBehaviour
 
     void BFS()
     {
-        if (_labyrinthSizeX < 0 || _algorithm.LabyrinthSizeX <= _labyrinthSizeX)
+        if (_startIndexX < 1 || (_algorithm.LabyrinthSizeX - 1) - 1 < _startIndexX)
         {
-            Debug.LogWarning("スタートの座標を迷路のサイズ内に設定してください");
+            Debug.LogWarning("X:スタートの座標を迷路のサイズ内に設定してください");
             return;
         }
 
-        if (_labyrinthSizeY < 0 || _algorithm.LabyrinthSizeY <= _labyrinthSizeY)
+        if (_startIndexY < 1 || (_algorithm.LabyrinthSizeY - 1) - 1 < _startIndexY)
         {
-            Debug.LogWarning("スタートの座標を迷路のサイズ内に設定してください");
+            Debug.LogWarning("Y:スタートの座標を迷路のサイズ内に設定してください");
             return;
         }
 
-        if (_labyrinthSizeZ < 0 || _algorithm.LabyrinthSizeZ <= _labyrinthSizeZ)
+        if (_startIndexZ < 1 || (_algorithm.LabyrinthSizeZ - 1) - 1 < _startIndexZ)
         {
-            Debug.LogWarning("スタートの座標を迷路のサイズ内に設定してください");
+            Debug.LogWarning("Z:スタートの座標を迷路のサイズ内に設定してください");
+            return;
+        }
+
+        if (!_algorithm.ConnectDic.ContainsKey((_startIndexX, _startIndexY, _startIndexZ)))
+        {
+            Debug.LogWarning("スタート地点に通れる場所がありません");
             return;
         }
 
@@ -112,11 +111,11 @@ public class CreateLabyrinth : MonoBehaviour
         Queue<(int x, int y, int z)> vertexQueue = new Queue<(int x, int y, int z)>();
 
         //スタートをキューに追加
-        vertexQueue.Enqueue((_labyrinthSizeX, _labyrinthSizeY, _labyrinthSizeZ));
+        vertexQueue.Enqueue((_startIndexX, _startIndexY, _startIndexZ));
         //探索済みに更新
-        vertex[(_labyrinthSizeX, _labyrinthSizeY, _labyrinthSizeZ)] = true;
+        vertex[(_startIndexX, _startIndexY, _startIndexZ)] = true;
         //オブジェクト生成
-        Instantiate(_prefab, new Vector3(_labyrinthSizeX, _labyrinthSizeY, _labyrinthSizeZ), Quaternion.identity);
+        Instantiate(_prefab, new Vector3(_startIndexX, _startIndexY, _startIndexZ), Quaternion.identity);
 
         var wait = new WaitForSeconds(CREATEINTERVAL);
         while (vertexQueue.Count != 0)

@@ -859,9 +859,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _prefab: {fileID: 4848453847283145642, guid: 992f661e393123947bbca65c640e5123, type: 3}
-  _startIndexX: 2
-  _startIndexY: 0
-  _startIndexZ: 2
+  _startIndexX: 5
+  _startIndexY: 1
+  _startIndexZ: 5
 --- !u!114 &1728045732
 MonoBehaviour:
   m_ObjectHideFlags: 0
