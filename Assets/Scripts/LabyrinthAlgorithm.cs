@@ -9,8 +9,6 @@ public class LabyrinthAlgorithm : MonoBehaviour
     [SerializeField, Tooltip("階層数")] int _labyrinthSizeY = 5;
     [SerializeField, Tooltip("奥行")] int _labyrinthSizeZ = 5;
 
-    /// <summary>アルゴリズムが終わった後に行う関数を持つデリゲート</summary>
-    public static Action CreateLabyrinth;
     /// <summary>連結情報を保持する辞書</summary>
     Dictionary<(int x, int y, int z), List<(int x, int y, int z)>> _connectDic = new Dictionary<(int, int, int), List<(int, int, int)>>();
     /// <summary>連結情報を保持する辞書を取得するプロパティ</summary>
@@ -92,7 +90,6 @@ public class LabyrinthAlgorithm : MonoBehaviour
 
         Debug.Log("CreateLabyrinth");
         MakeRoomConnectGlaph();
-        CreateLabyrinth();
     }
 
     /// <summary>
