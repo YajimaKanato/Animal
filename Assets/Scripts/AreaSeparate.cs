@@ -82,14 +82,20 @@ public class AreaSeparate : MonoBehaviour
             var cc = _coordinateList[0].GetCoordinateComponent();
             _coordinateList.RemoveAt(0);
 
-            //分割する軸を決める
-            int separateAxis = Random.Range(0, 3);
-            //分割する比率を決める
-            float separateRate = Random.Range(0.3f, 0.7f);
-            //分割しない場合も考慮した分割点の初期設定
+            //分割しない辺についても考慮した分割点の初期設定
             float separateX1 = cc.x.minX, separateX2 = cc.x.maxX;
             float separateY1 = cc.y.minY, separateY2 = cc.y.maxY;
             float separateZ1 = cc.z.minZ, separateZ2 = cc.z.maxZ;
+
+            //辺の長さとその辺に垂直な方向を組にしたタプルの配列
+            var sides = new (float length, int axis)[] {
+                (Mathf.Abs(separateX1 - separateX2), YZ)
+                , (Mathf.Abs(separateY1 - separateY2), ZX)
+                , (Mathf.Abs(separateZ1 - separateZ2), XY) };
+            //分割する比率を決める
+            float separateRate = Random.Range(0.3f, 0.7f);
+            //領域において最も長い辺に垂直な方向に分割するように決める
+            int separateAxis = sides.OrderByDescending(side => side.length).FirstOrDefault().axis;
             //軸と比率に合わせて分割点を決定
             switch (separateAxis)
             {

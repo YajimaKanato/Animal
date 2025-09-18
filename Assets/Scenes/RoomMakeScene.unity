@@ -1334,6 +1334,7 @@ MonoBehaviour:
   _startIndexX: 5
   _startIndexY: 5
   _startIndexZ: 5
+  _createInterval: 0.05
 --- !u!114 &1728045732
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1379,7 +1380,8 @@ MonoBehaviour:
   _separateValue: 10
   _areaSizeX: 100
   _areaSizeY: 100
-  _areaSizeZ: 1
+  _areaSizeZ: 100
+  _drawInterval: 0.5
 --- !u!1 &1801487157
 GameObject:
   m_ObjectHideFlags: 0
