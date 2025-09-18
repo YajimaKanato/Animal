@@ -132,7 +132,7 @@ public class CreateLabyrinth : MonoBehaviour
             }
         }
 
-        Debug.Log("BFS End");
+        Debug.Log("BFS Complete");
         yield break;
     }
 
@@ -212,7 +212,7 @@ public class CreateLabyrinth : MonoBehaviour
             }
         }
 
-        Debug.Log("DFS End");
+        Debug.Log("DFS Complete");
         yield break;
     }
 }
