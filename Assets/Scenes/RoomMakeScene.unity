@@ -1377,9 +1377,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _separateValue: 10
-  _areaSizeX: 50
-  _areaSizeY: 50
-  _areaSizeZ: 50
+  _areaSizeX: 100
+  _areaSizeY: 100
+  _areaSizeZ: 1
 --- !u!1 &1801487157
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using CC = Coordinate.CoordinateComponent;
@@ -39,11 +40,25 @@ public class AreaSeparate : MonoBehaviour
     [SerializeField] float _areaSizeX = 10;
     [SerializeField] float _areaSizeY = 10;
     [SerializeField] float _areaSizeZ = 10;
+    [SerializeField] float _drawInterval = 0.5f;
+
+    /// <summary>領域の集合</summary>
+    List<CC> _coordinateList = new List<CC>();
 
     const int XY = 0;
     const int YZ = 1;
     const int ZX = 2;
-    const float DRAWINTERVAL = 0.05f;
+
+    private void Update()
+    {
+        if (_coordinateList.Count > 0)
+        {
+            foreach (var coord in _coordinateList)
+            {
+                DrawLine(coord);
+            }
+        }
+    }
 
     /// <summary>
     /// 領域分割アルゴリズムを走らせる関数
@@ -55,23 +70,22 @@ public class AreaSeparate : MonoBehaviour
 
     IEnumerator SeparateCoroutine()
     {
-        //Coordinateクラスのキューを作成することで領域の集合を作成
-        Queue<CC> coordinateQueue = new Queue<CC>();
-        //分割する領域の頂点の座標の成分をキューに追加
-        coordinateQueue.Enqueue(new CC(0, 1, 0, 1, 0, 1));
+        //分割する領域の頂点の座標の成分をリストに追加
+        _coordinateList.Add(new CC(0, _areaSizeX, 0, _areaSizeY, 0, _areaSizeZ));
 
-        var wait = new WaitForSeconds(DRAWINTERVAL);
+        var wait = new WaitForSeconds(_drawInterval);
         //分割数が任意の数になるまで繰り返す
-        while (coordinateQueue.Count < _separateValue)
+        while (_coordinateList.Count < _separateValue)
         {
             //分割する領域を取得
             //ccはCoordinateComponentの頭文字
-            var cc = coordinateQueue.Dequeue().GetCoordinateComponent();
+            var cc = _coordinateList[0].GetCoordinateComponent();
+            _coordinateList.RemoveAt(0);
 
             //分割する軸を決める
             int separateAxis = Random.Range(0, 3);
             //分割する比率を決める
-            float separateRate = Random.Range(0.4f, 0.6f);
+            float separateRate = Random.Range(0.3f, 0.7f);
             //分割しない場合も考慮した分割点の初期設定
             float separateX1 = cc.x.minX, separateX2 = cc.x.maxX;
             float separateY1 = cc.y.minY, separateY2 = cc.y.maxY;
@@ -90,24 +104,23 @@ public class AreaSeparate : MonoBehaviour
                     break;
             }
 
-            //分割後の領域を作成
-            var newArea1 = new CC(cc.x.minX, separateX2, cc.y.minY, separateY2, cc.z.minZ, separateZ2);
-            var newArea2 = new CC(separateX1, cc.x.maxX, separateY1, cc.y.maxY, separateZ1, cc.z.maxZ);
-            //領域の大きさが大きいほうから順にキューに追加
-            if (separateRate < 0.5f)
-            {
-                coordinateQueue.Enqueue(newArea2);
-                coordinateQueue.Enqueue(newArea1);
-            }
-            else
-            {
-                coordinateQueue.Enqueue(newArea1);
-                coordinateQueue.Enqueue(newArea2);
-            }
+            //分割後の領域を追加
+            _coordinateList.Add(new CC(cc.x.minX, separateX2, cc.y.minY, separateY2, cc.z.minZ, separateZ2));
+            _coordinateList.Add(new CC(separateX1, cc.x.maxX, separateY1, cc.y.maxY, separateZ1, cc.z.maxZ));
+            //リストを体積の降順にソート
+            _coordinateList = new List<CC>(
+                _coordinateList
+                .OrderByDescending(cc =>
+                {
+                    var coord = cc.GetCoordinateComponent();
+                    return Mathf.Abs(coord.x.maxX - coord.x.minX) * Mathf.Abs(coord.y.maxY - coord.y.minY) * Mathf.Abs(coord.z.maxZ - coord.z.minZ);
+                })
+                .ToList());
 
             //領域を描画
-            foreach (var area in coordinateQueue)
+            foreach (var area in _coordinateList)
             {
+                var coord = area.GetCoordinateComponent();
                 DrawLine(area);
             }
             yield return wait;
@@ -127,14 +140,14 @@ public class AreaSeparate : MonoBehaviour
         var ccGet = cc.GetCoordinateComponent();
         //頂点集合
         Vector3[] coordinate = {
-            new(ccGet.x.minX, ccGet.y.minY, ccGet.z.minZ)
-            ,new(ccGet.x.maxX, ccGet.y.minY, ccGet.z.minZ)
-            ,new(ccGet.x.minX, ccGet.y.maxY, ccGet.z.minZ)
-            ,new(ccGet.x.maxX, ccGet.y.maxY, ccGet.z.minZ)
-            ,new(ccGet.x.minX, ccGet.y.minY, ccGet.z.maxZ)
-            ,new(ccGet.x.maxX, ccGet.y.minY, ccGet.z.maxZ)
-            ,new(ccGet.x.minX, ccGet.y.maxY, ccGet.z.maxZ)
-            ,new(ccGet.x.maxX, ccGet.y.maxY, ccGet.z.maxZ)};
+            new Vector3(ccGet.x.minX, ccGet.y.minY, ccGet.z.minZ)
+            ,new Vector3(ccGet.x.maxX, ccGet.y.minY, ccGet.z.minZ)
+            ,new Vector3(ccGet.x.minX, ccGet.y.maxY, ccGet.z.minZ)
+            ,new Vector3(ccGet.x.maxX, ccGet.y.maxY, ccGet.z.minZ)
+            ,new Vector3(ccGet.x.minX, ccGet.y.minY, ccGet.z.maxZ)
+            ,new Vector3(ccGet.x.maxX, ccGet.y.minY, ccGet.z.maxZ)
+            ,new Vector3(ccGet.x.minX, ccGet.y.maxY, ccGet.z.maxZ)
+            ,new Vector3(ccGet.x.maxX, ccGet.y.maxY, ccGet.z.maxZ)};
 
         //2種類の頂点について調べる
         for (int i = 0; i < coordinate.Length - 1; i++)

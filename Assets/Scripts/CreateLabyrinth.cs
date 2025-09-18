@@ -9,10 +9,10 @@ public class CreateLabyrinth : MonoBehaviour
     [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexX = 0;
     [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexY = 0;
     [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexZ = 0;
+    [SerializeField] float _createInterval = 0.05f;
 
     LabyrinthAlgorithm _algorithm;
 
-    const float CREATEINTERVAL = 0.05f;
     const int PASS = 1;
     const int WALL = 0;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -110,7 +110,7 @@ public class CreateLabyrinth : MonoBehaviour
         //オブジェクト生成
         Instantiate(_prefab, new Vector3(_startIndexX, _startIndexY, _startIndexZ), Quaternion.identity);
 
-        var wait = new WaitForSeconds(CREATEINTERVAL);
+        var wait = new WaitForSeconds(_createInterval);
         while (vertexQueue.Count != 0)
         {
             var searchVertex = vertexQueue.Dequeue();
@@ -191,7 +191,7 @@ public class CreateLabyrinth : MonoBehaviour
         //スタートをスタックに追加
         vertexStack.Push((_startIndexX, _startIndexY, _startIndexZ));
 
-        var wait = new WaitForSeconds(CREATEINTERVAL);
+        var wait = new WaitForSeconds(_createInterval);
         while (vertexStack.Count != 0)
         {
             var searchVertex = vertexStack.Pop();
