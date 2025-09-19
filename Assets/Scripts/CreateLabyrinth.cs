@@ -5,13 +5,14 @@ using UnityEngine;
 public class CreateLabyrinth : MonoBehaviour
 {
     [SerializeField] GameObject _prefab;
+    [SerializeField, Tooltip("生成間隔")] float _createInterval = 0.05f;
     [Header("スタートの位置（すべて奇数か偶数は１つまで）")]
     [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexX = 0;
     [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexY = 0;
     [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexZ = 0;
-    [SerializeField] float _createInterval = 0.05f;
 
     LabyrinthAlgorithm _algorithm;
+    AreaSeparate _separate;
 
     const int PASS = 1;
     const int WALL = 0;
@@ -24,6 +25,7 @@ public class CreateLabyrinth : MonoBehaviour
     void SetUp()
     {
         _algorithm = GetComponent<LabyrinthAlgorithm>();
+        _separate = GetComponent<AreaSeparate>();
     }
 
     /// <summary>
@@ -78,10 +80,6 @@ public class CreateLabyrinth : MonoBehaviour
         StartCoroutine(BFSCoroutine());
     }
 
-    /// <summary>
-    /// タイミングをずらしてオブジェクトを生成する関数
-    /// </summary>
-    /// <returns></returns>
     IEnumerator BFSCoroutine()
     {
         //グラフの頂点（部屋と通り道）を生成
@@ -129,6 +127,7 @@ public class CreateLabyrinth : MonoBehaviour
 
                 //新たに探索した頂点をキューに追加
                 vertexQueue.Enqueue(connect);
+                yield return ConnectSetCoroutine(searchVertex, connect);
             }
         }
 
@@ -202,17 +201,63 @@ public class CreateLabyrinth : MonoBehaviour
             yield return wait;
 
             //隣接頂点を調べる
-            foreach (var v in _algorithm.ConnectDic[searchVertex])
+            foreach (var connect in _algorithm.ConnectDic[searchVertex])
             {
                 //探索済みの頂点は飛ばす
-                if (vertex[v]) continue;
+                if (vertex[connect]) continue;
 
                 //隣接頂点をスタックに追加
-                vertexStack.Push(v);
+                vertexStack.Push(connect);
+                yield return ConnectSetCoroutine(searchVertex, connect);
             }
         }
 
         Debug.Log("DFS Complete");
+        yield break;
+    }
+
+    /// <summary>
+    /// 道をつなぐ関数
+    /// </summary>
+    /// <param name="current">現在の位置</param>
+    /// <param name="next">次につなぐ部屋の位置</param>
+    /// <returns></returns>
+    IEnumerator ConnectSetCoroutine((int x, int y, int z) current, (int x, int y, int z) next)
+    {
+        //GetPosition()で得られるリストはx→y→z座標の順に昇順でソートしているため
+        //z*y*x+y*x+xをインデックスに指定すれば迷路の部屋に対応した領域が得られる
+        //現在位置とつながる予定の部屋の位置を取得
+        var currentPos = _separate.GetPosition()[current.z * current.y * current.z + current.y * current.x + current.x];
+        var nextPos = _separate.GetPosition()[next.z * next.y * next.x + next.y * next.x + next.x];
+
+        var wait = new WaitForSeconds(_createInterval);
+        //それぞれの座標の差の大きさをすべて足して1引いた分だけ道を置く
+        for (int i = 0; i < Mathf.Abs(nextPos.x - currentPos.x) + Mathf.Abs(nextPos.y - currentPos.y) + Mathf.Abs(nextPos.z - currentPos.z); i++)
+        {
+            if (currentPos.x != nextPos.x)
+            {
+                if (Random.Range(0, 2) == 0)
+                {
+                    Instantiate(_prefab, new Vector3((nextPos.x - currentPos.x) / Mathf.Abs(nextPos.x - currentPos.x), currentPos.y, currentPos.z), Quaternion.identity);
+                    continue;
+                }
+            }
+
+            if (currentPos.y != nextPos.y)
+            {
+                if (Random.Range(0, 2) == 0)
+                {
+                    Instantiate(_prefab, new Vector3(currentPos.x, (nextPos.y - currentPos.y) / Mathf.Abs(nextPos.y - currentPos.y), currentPos.z), Quaternion.identity);
+                    continue;
+                }
+            }
+
+            if (currentPos.z != nextPos.z)
+            {
+                Instantiate(_prefab, new Vector3(currentPos.x, currentPos.y, (nextPos.z - currentPos.z) / Mathf.Abs(nextPos.z - currentPos.z)), Quaternion.identity);
+            }
+            yield return wait;
+        }
         yield break;
     }
 }

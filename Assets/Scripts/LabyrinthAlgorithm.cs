@@ -12,20 +12,22 @@ public class LabyrinthAlgorithm : MonoBehaviour
     /// <summary>連結情報を保持する辞書</summary>
     Dictionary<(int x, int y, int z), List<(int x, int y, int z)>> _connectDic = new Dictionary<(int, int, int), List<(int, int, int)>>();
     /// <summary>連結情報を保持する辞書を取得するプロパティ</summary>
-    public Dictionary<(int x, int y, int z), List<(int x, int y, int z)>> ConnectDic { get { return _connectDic; } }
+    public Dictionary<(int x, int y, int z), List<(int x, int y, int z)>> ConnectDic => _connectDic;
 
     /// <summary>部屋、柱、壁すべてのID</summary>
     int[,,] _roomID;
     /// <summary>部屋、柱、壁すべてのIDを取得するプロパティ</summary>
-    public int[,,] RoomID { get { return _roomID; } }
+    public int[,,] RoomID => _roomID;
     /// <summary>アルゴリズムを走らせるときのサイズ</summary>
     int _xlen, _ylen, _zlen;
     /// <summary>迷路の幅を取得するプロパティ</summary>
-    public int LabyrinthSizeX { get { return _xlen; } }
+    public int LabyrinthSizeX => _xlen;
     /// <summary>迷路の階層数を取得するプロパティ</summary>
-    public int LabyrinthSizeY { get { return _ylen; } }
+    public int LabyrinthSizeY => _ylen;
     /// <summary>迷路の奥行を取得するプロパティ</summary>
-    public int LabyrinthSizeZ { get { return _zlen; } }
+    public int LabyrinthSizeZ => _zlen;
+    /// <summary>部屋の数を取得するプロパティ</summary>
+    public int RoomNum => _labyrinthSizeX * _labyrinthSizeY * _labyrinthSizeZ;
 
     //アルゴリズムに使用する定数値
     const int X = 0;
