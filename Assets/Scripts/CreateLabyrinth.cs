@@ -127,7 +127,10 @@ public class CreateLabyrinth : MonoBehaviour
 
                 //新たに探索した頂点をキューに追加
                 vertexQueue.Enqueue(connect);
-                yield return ConnectSetCoroutine(searchVertex, connect);
+                if (searchVertex.x * searchVertex.y * searchVertex.z % 2 == 0)
+                {
+                    yield return ConnectSetCoroutine(searchVertex, connect);
+                }
             }
         }
 
@@ -208,7 +211,10 @@ public class CreateLabyrinth : MonoBehaviour
 
                 //隣接頂点をスタックに追加
                 vertexStack.Push(connect);
-                yield return ConnectSetCoroutine(searchVertex, connect);
+                if (searchVertex.x * searchVertex.y * searchVertex.z % 2 == 0)
+                {
+                    yield return ConnectSetCoroutine(searchVertex, connect);
+                }
             }
         }
 
@@ -219,7 +225,7 @@ public class CreateLabyrinth : MonoBehaviour
     /// <summary>
     /// 道をつなぐ関数
     /// </summary>
-    /// <param name="current">現在の位置</param>
+    /// <param name="current">道の現在の位置</param>
     /// <param name="next">次につなぐ部屋の位置</param>
     /// <returns></returns>
     IEnumerator ConnectSetCoroutine((int x, int y, int z) current, (int x, int y, int z) next)

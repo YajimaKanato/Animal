@@ -154,12 +154,13 @@ public class AreaSeparate : MonoBehaviour
             .ThenBy(x => x.GetCoordinateComponent().x.minX))
             .ToList();
 
+        /*
         //オブジェクト配置
         foreach (var area in GetPosition())
         {
             Instantiate(_prefab, new Vector3(area.x, area.y, area.z), Quaternion.identity);
             yield return wait;
-        }
+        }*/
 
         Debug.Log("Put Object Complete");
         yield break;
