@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using CC = Coordinate.CoordinateComponent;
+using Unity.VisualScripting;
 
 namespace Coordinate
 {
@@ -37,7 +38,7 @@ namespace Coordinate
 public class AreaSeparate : MonoBehaviour
 {
     [SerializeField] GameObject _prefab;
-    [SerializeField, Tooltip("生成間隔")] float _drawInterval = 0.5f;
+    [SerializeField, Tooltip("分割間隔")] float _drawInterval = 0.5f;
     [Header("領域のサイズ")]
     [SerializeField] float _areaSizeX = 10;
     [SerializeField] float _areaSizeY = 10;
@@ -46,7 +47,9 @@ public class AreaSeparate : MonoBehaviour
     [SerializeField] bool _isDraw = true;
 
     /// <summary>領域の集合</summary>
-    List<CC> _coordinateList = new List<CC>();
+    List<CC> _ccList = new List<CC>();
+    Dictionary<(int x, int y, int z), (int x, int y, int z)> _positionDic = new Dictionary<(int x, int y, int z), (int x, int y, int z)>();
+    public Dictionary<(int x, int y, int z), (int x, int y, int z)> PositionDic { get { return _positionDic; } }
     LabyrinthAlgorithm _algorithm;
 
     //分割する方向
@@ -61,9 +64,9 @@ public class AreaSeparate : MonoBehaviour
 
     private void Update()
     {
-        if (_coordinateList.Count > 0 && _isDraw)
+        if (_ccList.Count > 0 && _isDraw)
         {
-            foreach (var coord in _coordinateList)
+            foreach (var coord in _ccList)
             {
                 DrawLine(coord);
             }
@@ -81,16 +84,16 @@ public class AreaSeparate : MonoBehaviour
     IEnumerator SeparateCoroutine()
     {
         //分割する領域の頂点の座標の成分をリストに追加
-        _coordinateList.Add(new CC(0, _areaSizeX, 0, _areaSizeY, 0, _areaSizeZ));
+        _ccList.Add(new CC(0, _areaSizeX, 0, _areaSizeY, 0, _areaSizeZ));
 
         var wait = new WaitForSeconds(_drawInterval);
         //分割数が部屋の数になるまで繰り返す
-        while (_coordinateList.Count < _algorithm.RoomNum)
+        while (_ccList.Count < _algorithm.RoomNum)
         {
             //分割する領域を取得
             //ccはCoordinateComponentの頭文字
-            var cc = _coordinateList[0].GetCoordinateComponent();
-            _coordinateList.RemoveAt(0);
+            var cc = _ccList[0].GetCoordinateComponent();
+            _ccList.RemoveAt(0);
 
             //分割しない辺についても考慮した分割点の初期設定
             float separateX1 = cc.x.minX, separateX2 = cc.x.maxX;
@@ -121,11 +124,11 @@ public class AreaSeparate : MonoBehaviour
             }
 
             //分割後の領域を追加
-            _coordinateList.Add(new CC(cc.x.minX, separateX2, cc.y.minY, separateY2, cc.z.minZ, separateZ2));
-            _coordinateList.Add(new CC(separateX1, cc.x.maxX, separateY1, cc.y.maxY, separateZ1, cc.z.maxZ));
+            _ccList.Add(new CC(cc.x.minX, separateX2, cc.y.minY, separateY2, cc.z.minZ, separateZ2));
+            _ccList.Add(new CC(separateX1, cc.x.maxX, separateY1, cc.y.maxY, separateZ1, cc.z.maxZ));
             //リストを体積の降順にソート
-            _coordinateList = new List<CC>(
-                _coordinateList
+            _ccList = new List<CC>(
+                _ccList
                 .OrderByDescending(cc =>
                 {
                     var coord = cc.GetCoordinateComponent();
@@ -136,7 +139,7 @@ public class AreaSeparate : MonoBehaviour
             if (_isDraw)
             {
                 //領域を描画
-                foreach (var area in _coordinateList)
+                foreach (var area in _ccList)
                 {
                     var coord = area.GetCoordinateComponent();
                     DrawLine(area);
@@ -144,25 +147,18 @@ public class AreaSeparate : MonoBehaviour
             }
             yield return wait;
         }
-        Debug.Log("Separate Complete");
 
         //リストをx→y→zの順に昇順でソートする
-        _coordinateList = new List<CC>(
-            _coordinateList
+        _ccList = new List<CC>(
+            _ccList
             .OrderBy(z => z.GetCoordinateComponent().z.minZ)
             .ThenBy(y => y.GetCoordinateComponent().y.minY)
             .ThenBy(x => x.GetCoordinateComponent().x.minX))
             .ToList();
+        MakePositionDictionary();
 
-        /*
-        //オブジェクト配置
-        foreach (var area in GetPosition())
-        {
-            Instantiate(_prefab, new Vector3(area.x, area.y, area.z), Quaternion.identity);
-            yield return wait;
-        }*/
+        Debug.Log("Separate Complete");
 
-        Debug.Log("Put Object Complete");
         yield break;
     }
 
@@ -191,10 +187,10 @@ public class AreaSeparate : MonoBehaviour
             for (int j = i; j < coordinate.Length; j++)
             {
                 var coordinateDiff = coordinate[i] - coordinate[j];
-                //すべての頂点の差が0でない可能性を排除
+                //座標の差がすべて0ではない可能性を排除
                 if (coordinateDiff.x * coordinateDiff.y * coordinateDiff.z == 0)
                 {
-                    //各座標に0でない数字を2つ以上持っている可能性を排除
+                    //差が0ではない座標が2つ以上ある可能性を排除
                     if (coordinateDiff.x * coordinateDiff.y + coordinateDiff.y * coordinateDiff.z + coordinateDiff.z * coordinateDiff.x == 0)
                     {
                         Debug.DrawLine(coordinate[i], coordinate[j], Color.red);
@@ -211,12 +207,39 @@ public class AreaSeparate : MonoBehaviour
     public List<(int x, int y, int z)> GetPosition()
     {
         return new List<(int x, int y, int z)>(
-            _coordinateList
+            _ccList
             .Select(cc =>
             {
                 var coord = cc.GetCoordinateComponent();
                 return ((int)((coord.x.maxX + coord.x.minX) / 2), (int)((coord.y.maxY + coord.y.minY) / 2), (int)((coord.z.maxZ + coord.z.minZ) / 2));
             })
             .ToList());
+    }
+
+    /// <summary>
+    /// 領域の中心座標とIDをペアにした辞書を作成する関数
+    /// </summary>
+    void MakePositionDictionary()
+    {
+        var list = new List<(int x, int y, int z)>(
+            _ccList
+            .Select(cc =>
+            {
+                var coord = cc.GetCoordinateComponent();
+                return ((int)((coord.x.maxX + coord.x.minX) / 2), (int)((coord.y.maxY + coord.y.minY) / 2), (int)((coord.z.maxZ + coord.z.minZ) / 2));
+            })
+            .ToList());
+
+        int forx = _algorithm.LabyrinthSizeX / 2, fory = _algorithm.LabyrinthSizeY / 2, forz = _algorithm.LabyrinthSizeZ / 2;
+        for (int i = 0; i < forz; i++)
+        {
+            for (int j = 0; j < fory; j++)
+            {
+                for (int k = 0; k < forx; k++)
+                {
+                    _positionDic.Add((k * 2 + 1, j * 2 + 1, i * 2 + 1), list[i * fory * forx + j * forx + k]);
+                }
+            }
+        }
     }
 }

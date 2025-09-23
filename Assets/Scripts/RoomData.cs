@@ -1,11 +1,18 @@
 using UnityEditor;
 using UnityEngine;
 
-public class ObjectData : MonoBehaviour
+public class RoomData : MonoBehaviour
 {
     [SerializeField] bool _useRight, _useLeft, _useUp, _useDown, _useForward, _useBack;
     [SerializeField] NextObjectData _right, _left, _up, _down, _forward, _back;
     [SerializeField] NextObjectData _wallR, _wallL, _wallU, _wallD, _wallF, _wallB;
+    [SerializeField] Transform _rightConnect, _leftConnect, _upConnect, _downConnect, _forwardConnect, _backConnect;
+    public Transform RightConnect { get { return _rightConnect; } }
+    public Transform LeftConnect { get { return _leftConnect; } }
+    public Transform UpConnect { get { return _upConnect; } }
+    public Transform DownConnect { get { return _downConnect; } }
+    public Transform ForwardConnect { get { return _forwardConnect; } }
+    public Transform BackConnect { get { return _backConnect; } }
 
     private void Start()
     {
@@ -45,12 +52,12 @@ public class ObjectData : MonoBehaviour
     /// <summary>
     /// インスペクターをカスタムするためのクラス
     /// </summary>
-    [CustomEditor(typeof(ObjectData))]
+    [CustomEditor(typeof(RoomData))]
     class InspectorEditor : Editor
     {
         public override void OnInspectorGUI()
         {
-            var _data = (ObjectData)target;
+            var _data = (RoomData)target;
 
             EditorGUI.BeginChangeCheck();
 
@@ -80,7 +87,7 @@ public class ObjectData : MonoBehaviour
             if (_data._useUp)
             {
                 var _upProp = serializedObject.FindProperty(nameof(_data._up));
-                EditorGUILayout.ObjectField(_upProp); 
+                EditorGUILayout.ObjectField(_upProp);
                 _upProp = serializedObject.FindProperty(nameof(_data._wallU));
                 EditorGUILayout.ObjectField(_upProp);
             }

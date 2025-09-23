@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class CreateLabyrinth : MonoBehaviour
 {
-    [SerializeField] GameObject _prefab;
+    [SerializeField] GameObject _room, _load;
     [SerializeField, Tooltip("生成間隔")] float _createInterval = 0.05f;
     [Header("スタートの位置（すべて奇数か偶数は１つまで）")]
     [SerializeField, Tooltip("1以上{(迷路のサイズ)*2+1}未満の数字でインデックスを指定")] int _startIndexX = 0;
@@ -13,6 +13,10 @@ public class CreateLabyrinth : MonoBehaviour
 
     LabyrinthAlgorithm _algorithm;
     AreaSeparate _separate;
+    /// <summary>連結ポイントのペアを持つ辞書</summary>
+    Dictionary<(int x, int y, int z), Queue<Vector3>> _connectPointPair = new Dictionary<(int x, int y, int z), Queue<Vector3>>();
+    /// <summary>探索アルゴリズムで調べた頂点（道）の順番を保持するキュー</summary>
+    Queue<(int x, int y, int z)> _searchLoadOrder = new Queue<(int x, int y, int z)>();
 
     const int PASS = 1;
     const int WALL = 0;
@@ -41,7 +45,7 @@ public class CreateLabyrinth : MonoBehaviour
                 {
                     if (_algorithm.RoomID[l, m, n] != WALL)
                     {
-                        Instantiate(_prefab, new Vector3(l, m, n), Quaternion.identity);
+                        Instantiate(_room, new Vector3(l, m, n), Quaternion.identity);
                     }
                 }
             }
@@ -103,10 +107,6 @@ public class CreateLabyrinth : MonoBehaviour
 
         //スタートをキューに追加
         vertexQueue.Enqueue((_startIndexX, _startIndexY, _startIndexZ));
-        //探索済みに更新
-        vertex[(_startIndexX, _startIndexY, _startIndexZ)] = true;
-        //オブジェクト生成
-        Instantiate(_prefab, new Vector3(_startIndexX, _startIndexY, _startIndexZ), Quaternion.identity);
 
         var wait = new WaitForSeconds(_createInterval);
         while (vertexQueue.Count != 0)
@@ -114,10 +114,20 @@ public class CreateLabyrinth : MonoBehaviour
             var searchVertex = vertexQueue.Dequeue();
             //探索済みに更新
             vertex[searchVertex] = true;
-            //オブジェクト生成
-            Instantiate(_prefab, new Vector3(searchVertex.x, searchVertex.y, searchVertex.z), Quaternion.identity);
+            if (searchVertex.x * searchVertex.y * searchVertex.z % 2 != 0)
+            {
+                //部屋の時にオブジェクト生成
+                var pos = _separate.PositionDic[searchVertex];
+                var go = Instantiate(_room, new Vector3(pos.x, pos.y, pos.z), Quaternion.identity);
+                //生成した部屋にIDを伝える
+                go.GetComponent<Room>().SetID(searchVertex, _algorithm, this);
+            }
+            else
+            {
+                //調べた道をキューに追加
+                _searchLoadOrder.Enqueue(searchVertex);
+            }
             yield return wait;
-
 
             //隣接頂点を調べる
             foreach (var connect in _algorithm.ConnectDic[searchVertex])
@@ -127,14 +137,13 @@ public class CreateLabyrinth : MonoBehaviour
 
                 //新たに探索した頂点をキューに追加
                 vertexQueue.Enqueue(connect);
-                if (searchVertex.x * searchVertex.y * searchVertex.z % 2 == 0)
-                {
-                    yield return ConnectSetCoroutine(searchVertex, connect);
-                }
             }
         }
 
         Debug.Log("BFS Complete");
+
+        yield return LoadSetCoroutine();
+
         yield break;
     }
 
@@ -200,7 +209,7 @@ public class CreateLabyrinth : MonoBehaviour
             //探索済みに更新
             vertex[searchVertex] = true;
             //オブジェクト生成
-            Instantiate(_prefab, new Vector3(searchVertex.x, searchVertex.y, searchVertex.z), Quaternion.identity);
+            Instantiate(_room, new Vector3(searchVertex.x, searchVertex.y, searchVertex.z), Quaternion.identity);
             yield return wait;
 
             //隣接頂点を調べる
@@ -211,10 +220,6 @@ public class CreateLabyrinth : MonoBehaviour
 
                 //隣接頂点をスタックに追加
                 vertexStack.Push(connect);
-                if (searchVertex.x * searchVertex.y * searchVertex.z % 2 == 0)
-                {
-                    yield return ConnectSetCoroutine(searchVertex, connect);
-                }
             }
         }
 
@@ -223,47 +228,161 @@ public class CreateLabyrinth : MonoBehaviour
     }
 
     /// <summary>
-    /// 道をつなぐ関数
+    /// IDと連結ポイントのペアの辞書に登録する関数
     /// </summary>
-    /// <param name="current">道の現在の位置</param>
-    /// <param name="next">次につなぐ部屋の位置</param>
-    /// <returns></returns>
-    IEnumerator ConnectSetCoroutine((int x, int y, int z) current, (int x, int y, int z) next)
+    /// <param name="vertex">連結ポイント</param>
+    /// <param name="pos">連結ポイントの座標</param>
+    public void RegisterDic((int x, int y, int z) vertex, Vector3 pos)
     {
-        //GetPosition()で得られるリストはx→y→z座標の順に昇順でソートしているため
-        //z*y*x+y*x+xをインデックスに指定すれば迷路の部屋に対応した領域が得られる
-        //現在位置とつながる予定の部屋の位置を取得
-        var currentPos = _separate.GetPosition()[current.z * current.y * current.z + current.y * current.x + current.x];
-        var nextPos = _separate.GetPosition()[next.z * next.y * next.x + next.y * next.x + next.x];
-
-        var wait = new WaitForSeconds(_createInterval);
-        //それぞれの座標の差の大きさをすべて足して1引いた分だけ道を置く
-        for (int i = 0; i < Mathf.Abs(nextPos.x - currentPos.x) + Mathf.Abs(nextPos.y - currentPos.y) + Mathf.Abs(nextPos.z - currentPos.z); i++)
+        if (!_connectPointPair.ContainsKey(vertex))
         {
-            if (currentPos.x != nextPos.x)
-            {
-                if (Random.Range(0, 2) == 0)
-                {
-                    Instantiate(_prefab, new Vector3((nextPos.x - currentPos.x) / Mathf.Abs(nextPos.x - currentPos.x), currentPos.y, currentPos.z), Quaternion.identity);
-                    continue;
-                }
-            }
-
-            if (currentPos.y != nextPos.y)
-            {
-                if (Random.Range(0, 2) == 0)
-                {
-                    Instantiate(_prefab, new Vector3(currentPos.x, (nextPos.y - currentPos.y) / Mathf.Abs(nextPos.y - currentPos.y), currentPos.z), Quaternion.identity);
-                    continue;
-                }
-            }
-
-            if (currentPos.z != nextPos.z)
-            {
-                Instantiate(_prefab, new Vector3(currentPos.x, currentPos.y, (nextPos.z - currentPos.z) / Mathf.Abs(nextPos.z - currentPos.z)), Quaternion.identity);
-            }
-            yield return wait;
+            _connectPointPair[vertex] = new Queue<Vector3>();
         }
+        _connectPointPair[vertex].Enqueue(pos);
+    }
+
+    IEnumerator LoadSetCoroutine()
+    {
+        foreach (var load in _searchLoadOrder)
+        {
+            var connect = _connectPointPair[load];//連結ポイントのペア取得
+            var start = connect.Dequeue();//連結開始点
+            var end = connect.Dequeue();//連結終了点
+            var mid = (start + end) / 2;//連結ポイントの中点
+            //それぞれの連結ポイントがワールド座標の正負どちらにあるか
+            var dirx = end.x - start.x > 0 ? 1 : -1;
+            var diry = end.y - start.y > 0 ? 1 : -1;
+            var dirz = end.z - start.z > 0 ? 1 : -1;
+            var wait = new WaitForSeconds(_createInterval);
+
+            if (load.x % 2 == 0)
+            {
+                //中点まで伸ばす
+                int x = 0, y = 0, z = 0;
+                for (int i = 0; i < (int)Mathf.Abs(mid.x - start.x); i++)
+                {
+                    x = i * dirx;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = 0; i < (int)Mathf.Abs(mid.y - start.y); i++)
+                {
+                    y = i * diry;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = 0; i < (int)Mathf.Abs(mid.z - start.z); i++)
+                {
+                    z = i * dirz;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                //中点から伸ばす
+                for (int i = (int)Mathf.Abs(mid.z - start.z); i <= Mathf.Abs(end.z - start.z); i++)
+                {
+                    z = i * dirz;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = (int)Mathf.Abs(mid.y - start.y); i <= Mathf.Abs(end.y - start.y); i++)
+                {
+                    y = i * diry;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = (int)Mathf.Abs(mid.x - start.x); i <= Mathf.Abs(end.x - start.x); i++)
+                {
+                    x = i * dirx;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+            }
+            else if (load.y % 2 == 0)
+            {
+                //中点まで伸ばす
+                int x = 0, y = 0, z = 0;
+                for (int i = 0; i < (int)Mathf.Abs(mid.y - start.y); i++)
+                {
+                    y = i * diry;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = 0; i < (int)Mathf.Abs(mid.z - start.z); i++)
+                {
+                    z = i * dirz;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = 0; i < (int)Mathf.Abs(mid.x - start.x); i++)
+                {
+                    x = i * dirx;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                //中点から伸ばす
+                for (int i = (int)Mathf.Abs(mid.x - start.x); i <= Mathf.Abs(end.x - start.x); i++)
+                {
+                    x = i * dirx;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = (int)Mathf.Abs(mid.z - start.z); i <= Mathf.Abs(end.z - start.z); i++)
+                {
+                    z = i * dirz;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = (int)Mathf.Abs(mid.y - start.y); i <= Mathf.Abs(end.y - start.y); i++)
+                {
+                    y = i * diry;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+            }
+            else
+            {
+                //中点まで伸ばす
+                int x = 0, y = 0, z = 0;
+                for (int i = 0; i < (int)Mathf.Abs(mid.z - start.z); i++)
+                {
+                    z = i * dirz;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = 0; i < (int)Mathf.Abs(mid.x - start.x); i++)
+                {
+                    x = i * dirx;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = 0; i < (int)Mathf.Abs(mid.y - start.y); i++)
+                {
+                    y = i * diry;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                //中点から伸ばす
+                for (int i = (int)Mathf.Abs(mid.y - start.y); i <= Mathf.Abs(end.y - start.y); i++)
+                {
+                    y = i * diry;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = (int)Mathf.Abs(mid.x - start.x); i <= Mathf.Abs(end.x - start.x); i++)
+                {
+                    x = i * dirx;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+                for (int i = (int)Mathf.Abs(mid.z - start.z); i <= Mathf.Abs(end.z - start.z); i++)
+                {
+                    z = i * dirz;
+                    Instantiate(_load, start + new Vector3(x, y, z), Quaternion.identity);
+                    yield return wait;
+                }
+            }
+        }
+        Debug.Log("LoadSetting Complete");
         yield break;
     }
 }
