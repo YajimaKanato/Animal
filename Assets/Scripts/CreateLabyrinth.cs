@@ -207,9 +207,19 @@ public class CreateLabyrinth : MonoBehaviour
         {
             var searchVertex = vertexStack.Pop();
             //探索済みに更新
-            vertex[searchVertex] = true;
-            //オブジェクト生成
-            Instantiate(_room, new Vector3(searchVertex.x, searchVertex.y, searchVertex.z), Quaternion.identity);
+            vertex[searchVertex] = true; if (searchVertex.x * searchVertex.y * searchVertex.z % 2 != 0)
+            {
+                //部屋の時にオブジェクト生成
+                var pos = _separate.PositionDic[searchVertex];
+                var go = Instantiate(_room, new Vector3(pos.x, pos.y, pos.z), Quaternion.identity);
+                //生成した部屋にIDを伝える
+                go.GetComponent<Room>().SetID(searchVertex, _algorithm, this);
+            }
+            else
+            {
+                //調べた道をキューに追加
+                _searchLoadOrder.Enqueue(searchVertex);
+            }
             yield return wait;
 
             //隣接頂点を調べる
@@ -224,6 +234,9 @@ public class CreateLabyrinth : MonoBehaviour
         }
 
         Debug.Log("DFS Complete");
+
+        yield return LoadSetCoroutine();
+
         yield break;
     }
 
